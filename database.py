@@ -146,9 +146,14 @@ class DatabaseManager:
                     return None
              else:
                 return None
+        
+        user_id = self.get_current_user_id()
+        if not user_id:
+            return None
 
         try:
-            response = self.supabase.table("produtos").select("*").execute()
+            # Segurança extra: filtrar explicitamente pelo user_id
+            response = self.supabase.table("produtos").select("*").eq("user_id", user_id).execute()
             return response.data
         except Exception as e:
             print(f"Erro ao baixar do Supabase: {e}")

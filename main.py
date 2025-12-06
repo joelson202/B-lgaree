@@ -230,7 +230,7 @@ class VoiceInputDialog(QDialog):
         return data
 
 
-CURRENT_VERSION = "1.0.8"
+CURRENT_VERSION = "1.0.9"
 VERSION_URL = "https://raw.githubusercontent.com/joelson202/B-lgaree/main/version.json"
 
 class UpdateChecker(QThread):
@@ -792,6 +792,13 @@ class MainWindow(QWidget):
         
         for r in range(rows):
             row_data = {}
+            # Recuperar ID do produto (se existir) da coluna 0
+            item_id = self.finance_table.item(r, 0)
+            if item_id:
+                prod_id = item_id.data(Qt.UserRole + 1)
+                if prod_id:
+                    row_data['id'] = prod_id
+
             for c, key in enumerate(keys):
                 item = self.finance_table.item(r, c)
                 text = item.text() if item else ""
@@ -840,10 +847,18 @@ class MainWindow(QWidget):
                 row = self.finance_table.rowCount()
                 self.finance_table.insertRow(row)
                 
+                # Recuperar ID se existir (do Supabase)
+                prod_id = row_data.get('id')
+
                 for col, key in enumerate(keys):
                     val = row_data.get(key, "")
                     item = QTableWidgetItem(str(val))
                     item.setTextAlignment(Qt.AlignCenter)
+                    
+                    # Salvar ID na primeira coluna (oculto)
+                    if col == 0 and prod_id:
+                        item.setData(Qt.UserRole + 1, prod_id)
+
                     self.finance_table.setItem(row, col, item)
                     
                     # Restaurar metadados de estoque
