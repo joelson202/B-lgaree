@@ -10,7 +10,7 @@ import speech_recognition as sr
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QSizeGrip, QComboBox, QFrame, QTableWidget, QTableWidgetItem,
-    QMenu, QAction, QDialog, QSpinBox, QMessageBox, QLineEdit, QInputDialog
+    QMenu, QAction, QDialog, QSpinBox, QMessageBox, QLineEdit, QInputDialog, QStackedWidget
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QUrl
 from PyQt5.QtGui import QDesktopServices
@@ -230,7 +230,7 @@ class VoiceInputDialog(QDialog):
         return data
 
 
-CURRENT_VERSION = "1.0.9"
+CURRENT_VERSION = "1.1.0"
 VERSION_URL = "https://raw.githubusercontent.com/joelson202/B-lgaree/main/version.json"
 
 class UpdateChecker(QThread):
@@ -647,8 +647,15 @@ class MainWindow(QWidget):
                 text-decoration: underline;
             }
         """)
-        self.btn_produtos.clicked.connect(self.toggle_produtos_panel)
+        self.btn_produtos.clicked.connect(self.show_produtos)
         self.menu_layout.addWidget(self.btn_produtos)
+
+        self.btn_vendas = QPushButton("Vendas")
+        self.btn_vendas.setCursor(Qt.PointingHandCursor)
+        self.btn_vendas.setStyleSheet(self.btn_produtos.styleSheet())
+        self.btn_vendas.clicked.connect(self.show_vendas)
+        self.menu_layout.addWidget(self.btn_vendas)
+
         self.menu_layout.addStretch()
         self.menu_container.setFixedWidth(150)
         self.main_horizontal_layout.addWidget(self.menu_container)
@@ -658,15 +665,28 @@ class MainWindow(QWidget):
         self.display_layout = QVBoxLayout(self.display_area)
         self.display_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Painel de Produtos
+        # Painel de Stack (Produtos / Vendas)
+        self.stack = QStackedWidget()
+        self.display_layout.addWidget(self.stack)
+
+        # --- Painel de Produtos ---
         self.produtos_panel = QFrame()
         self.produtos_panel.setStyleSheet("""
             background-color: #ADD8E6; 
             border-radius: 15px;
             border: none;
         """)
-        self.produtos_panel.hide()
-        self.display_layout.addWidget(self.produtos_panel)
+        self.stack.addWidget(self.produtos_panel)
+
+        # --- Painel de Vendas ---
+        self.vendas_panel = QFrame()
+        self.vendas_panel.setStyleSheet("""
+            background-color: #E6E6FA; 
+            border-radius: 15px;
+            border: none;
+        """)
+        self.stack.addWidget(self.vendas_panel)
+
         self.main_horizontal_layout.addWidget(self.display_area)
         self.layout.addWidget(self.content)
 
@@ -679,7 +699,7 @@ class MainWindow(QWidget):
         label_planilha.setStyleSheet("font-family: Segoe UI; font-size: 16px; font-weight: bold; color: #000080;")
         produtos_layout.addWidget(label_planilha)
 
-        # Tabela
+        # Tabela Produtos
         self.finance_table = QTableWidget()
         self.finance_table.setColumnCount(8)
         self.finance_table.setHorizontalHeaderLabels(["Data", "Mercadorias", "Categoria", "Descrição", "Código", "Preço", "Estoque", "Quantidade"])
@@ -688,7 +708,7 @@ class MainWindow(QWidget):
         self.finance_table.customContextMenuRequested.connect(self.open_context_menu)
         produtos_layout.addWidget(self.finance_table)
 
-        # Botões e Saldo
+        # Botões Produtos
         buttons_layout = QHBoxLayout()
         self.btn_add = QPushButton("Adicionar")
         self.btn_add.setStyleSheet("background-color: #00CED1; color: white; font-weight: bold;")
@@ -710,6 +730,40 @@ class MainWindow(QWidget):
         buttons_layout.addWidget(self.btn_voice)
         
         produtos_layout.addLayout(buttons_layout)
+
+        # --- Layout interno do painel Vendas ---
+        vendas_layout = QVBoxLayout(self.vendas_panel)
+        vendas_layout.setContentsMargins(15, 15, 15, 15)
+        vendas_layout.setSpacing(10)
+
+        label_vendas = QLabel("Registro de Vendas")
+        label_vendas.setStyleSheet("font-family: Segoe UI; font-size: 16px; font-weight: bold; color: #4B0082;")
+        vendas_layout.addWidget(label_vendas)
+
+        # Tabela Vendas
+        self.sales_table = QTableWidget()
+        self.sales_table.setColumnCount(5)
+        self.sales_table.setHorizontalHeaderLabels(["Data", "Produto", "Quantidade", "Valor Unit.", "Total"])
+        self.sales_table.horizontalHeader().setStretchLastSection(True)
+        vendas_layout.addWidget(self.sales_table)
+
+        # Botões Vendas
+        vendas_buttons_layout = QHBoxLayout()
+        self.btn_add_sale = QPushButton("Adicionar Venda")
+        self.btn_add_sale.setStyleSheet("background-color: #32CD32; color: white; font-weight: bold;")
+        self.btn_add_sale.clicked.connect(self.add_sale_row)
+        vendas_buttons_layout.addWidget(self.btn_add_sale)
+
+        self.btn_remove_sale = QPushButton("Remover Venda")
+        self.btn_remove_sale.setStyleSheet("background-color: #FF4500; color: white; font-weight: bold;")
+        self.btn_remove_sale.clicked.connect(self.remove_sale_row)
+        vendas_buttons_layout.addWidget(self.btn_remove_sale)
+
+        self.sales_total_label = QLabel("Total Vendas: R$ 0,00")
+        self.sales_total_label.setStyleSheet("font-weight: bold; color: blue;")
+        vendas_buttons_layout.addWidget(self.sales_total_label)
+        
+        vendas_layout.addLayout(vendas_buttons_layout)
 
         # Painel de Configurações
         self.settings_panel = QWidget(self)
@@ -1120,13 +1174,138 @@ class MainWindow(QWidget):
         self.saldo_label.setText(f"Saldo Total: R$ {total:.2f}")
         self.saldo_label.setStyleSheet(f"font-weight: bold; color: {'green' if total>=0 else 'red'};")
 
-    # --- Funções de UI ---
-    def toggle_produtos_panel(self):
-        if self.produtos_panel.isVisible():
-            self.produtos_panel.hide()
-        else:
-            self.produtos_panel.show()
+    # --- Navigation ---
+    def show_produtos(self):
+        self.stack.setCurrentWidget(self.produtos_panel)
 
+    def show_vendas(self):
+        self.stack.setCurrentWidget(self.vendas_panel)
+
+    # --- Sales Logic ---
+    def get_sales_data(self):
+        data = []
+        rows = self.sales_table.rowCount()
+        keys = ["data", "produto", "quantidade", "valor_unit", "total"]
+        
+        for r in range(rows):
+            row_data = {}
+            # ID hidden in col 0
+            item_id = self.sales_table.item(r, 0)
+            if item_id:
+                sale_id = item_id.data(Qt.UserRole + 1)
+                if sale_id:
+                    row_data['id'] = sale_id
+
+            for c, key in enumerate(keys):
+                item = self.sales_table.item(r, c)
+                text = item.text() if item else ""
+                row_data[key] = text
+            
+            data.append(row_data)
+        return data
+
+    def load_sales_data(self):
+        try:
+            local_data = self.db.load_local("sales.json")
+            cloud_data = None
+            if self.db.user:
+                 cloud_data = self.db.load_from_supabase("vendas")
+
+            if cloud_data is not None and len(cloud_data) > 0:
+                data = cloud_data
+                self.db.save_local(data, "sales.json")
+            elif local_data:
+                data = local_data
+                if cloud_data is not None and len(cloud_data) == 0:
+                     threading.Thread(target=self.manual_sync_sales, daemon=True).start()
+            else:
+                data = []
+
+            self.sales_table.setRowCount(0)
+            keys = ["data", "produto", "quantidade", "valor_unit", "total"]
+            
+            for row_data in data:
+                row = self.sales_table.rowCount()
+                self.sales_table.insertRow(row)
+                
+                sale_id = row_data.get('id')
+
+                for col, key in enumerate(keys):
+                    val = row_data.get(key, "")
+                    item = QTableWidgetItem(str(val))
+                    item.setTextAlignment(Qt.AlignCenter)
+                    
+                    if col == 0 and sale_id:
+                        item.setData(Qt.UserRole + 1, sale_id)
+
+                    self.sales_table.setItem(row, col, item)
+            
+            self.update_sales_total()
+        except Exception as e:
+            print(f"Erro ao carregar vendas: {e}")
+
+    def save_sales_data(self):
+        data = self.get_sales_data()
+        self.db.save_local(data, "sales.json")
+        threading.Thread(target=self.manual_sync_sales, daemon=True).start()
+
+    def manual_sync_sales(self):
+        data = self.get_sales_data()
+        self.db.sync_to_supabase(data, "vendas")
+
+    def on_sale_changed(self, item):
+        self.update_sales_total()
+        self.save_sales_data()
+
+    def add_sale_row(self):
+        row = self.sales_table.rowCount()
+        self.sales_table.insertRow(row)
+        # Add empty items
+        for i in range(5):
+            self.sales_table.setItem(row, i, QTableWidgetItem(""))
+        self.save_sales_data()
+
+    def remove_sale_row(self):
+        rows = self.sales_table.rowCount()
+        if rows == 0:
+            return
+            
+        dialog = QInputDialog(self)
+        dialog.setInputMode(QInputDialog.IntInput)
+        dialog.setWindowTitle("Remover Venda")
+        dialog.setLabelText("Número da linha para remover:")
+        dialog.setIntRange(1, rows)
+        dialog.setIntValue(rows)
+        dialog.setIntStep(1)
+        
+        dialog.setStyleSheet("""
+            QDialog { background-color: #2E2E2E; color: white; border: 1px solid #FF4500; }
+            QLabel { color: white; font-size: 14px; font-family: Segoe UI; }
+            QSpinBox { background-color: #3E3E3E; color: white; border: 1px solid #555; padding: 5px; }
+            QPushButton { background-color: #FF4500; color: white; padding: 5px 15px; border: none; }
+            QPushButton:hover { background-color: #FF6347; }
+        """)
+        
+        if dialog.exec_():
+            idx = dialog.intValue() - 1
+            if 0 <= idx < rows:
+                self.sales_table.removeRow(idx)
+                self.update_sales_total()
+                self.save_sales_data()
+
+    def update_sales_total(self):
+        total = 0.0
+        for row in range(self.sales_table.rowCount()):
+            item = self.sales_table.item(row, 4) # Total column
+            if item:
+                try:
+                    val = float(item.text().replace(",", "."))
+                    total += val
+                except:
+                    pass
+        self.sales_total_label.setText(f"Total Vendas: R$ {total:.2f}")
+
+    # --- Funções de UI ---
     def toggle_settings_panel(self):
         if self.settings_panel.isVisible():
             self.settings_panel.hide()

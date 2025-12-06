@@ -23,6 +23,11 @@ Scripts/
 *.log
 icon_temp.png
 
+# Ignorar backups e dados locais
+main_backup.py
+sales.json
+products.json
+
 # Permitir especificamente a pasta de distribuição (executáveis)
 !dist/
 !dist/*.exe

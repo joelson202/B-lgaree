@@ -86,28 +86,28 @@ class DatabaseManager:
                 return self.user.id
         return None
 
-    def save_local(self, data):
+    def save_local(self, data, filename="products.json"):
         """Salva dados localmente em JSON."""
         try:
-            with open(self.local_file, "w", encoding="utf-8") as f:
+            with open(filename, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
             return True
         except Exception as e:
             print(f"Erro ao salvar localmente: {e}")
             return False
 
-    def load_local(self):
+    def load_local(self, filename="products.json"):
         """Carrega dados locais do JSON."""
-        if not os.path.exists(self.local_file):
+        if not os.path.exists(filename):
             return []
         try:
-            with open(self.local_file, "r", encoding="utf-8") as f:
+            with open(filename, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             print(f"Erro ao carregar localmente: {e}")
             return []
 
-    def sync_to_supabase(self, data):
+    def sync_to_supabase(self, data, table_name="produtos"):
         """Envia dados para o Supabase (upsert)."""
         if not self.supabase:
             # Tentar reconectar se tiver config
@@ -133,13 +133,13 @@ class DatabaseManager:
                 data_to_send.append(new_item)
 
             # Supabase upsert
-            response = self.supabase.table("produtos").upsert(data_to_send).execute()
+            response = self.supabase.table(table_name).upsert(data_to_send).execute()
             return True, "Sincronizado com sucesso."
             
         except Exception as e:
             return False, f"Erro ao sincronizar: {e}"
 
-    def load_from_supabase(self):
+    def load_from_supabase(self, table_name="produtos"):
         if not self.supabase:
              if self.url and self.key:
                 if not self.init_supabase():
@@ -153,7 +153,7 @@ class DatabaseManager:
 
         try:
             # Segurança extra: filtrar explicitamente pelo user_id
-            response = self.supabase.table("produtos").select("*").eq("user_id", user_id).execute()
+            response = self.supabase.table(table_name).select("*").eq("user_id", user_id).execute()
             return response.data
         except Exception as e:
             print(f"Erro ao baixar do Supabase: {e}")
