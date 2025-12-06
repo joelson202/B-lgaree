@@ -1,7 +1,7 @@
 # Ignorar arquivos de código fonte Python
-*.py
-*.pyw
-*.pyc
+# *.py
+# *.pyw
+# *.pyc
 __pycache__/
 
 # Ignorar scripts de build e configuração
