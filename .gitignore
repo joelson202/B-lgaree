@@ -1,0 +1,34 @@
+# Ignorar arquivos de código fonte Python
+*.py
+*.pyw
+*.pyc
+__pycache__/
+
+# Ignorar scripts de build e configuração
+*.bat
+*.sh
+*.spec
+
+# Ignorar pastas de ambiente e build
+build/
+.vscode/
+.idea/
+venv/
+env/
+Lib/
+Scripts/
+
+# Ignorar arquivos temporários
+*.tmp
+*.log
+icon_temp.png
+
+# Permitir especificamente a pasta de distribuição (executáveis)
+!dist/
+!dist/*.exe
+
+# Permitir ícone
+!icon.ico
+
+# Manter requirements se quiser (opcional, vou manter por enquanto)
+# !requirements.txt
