@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (
     QSizeGrip, QComboBox, QFrame, QTableWidget, QTableWidgetItem,
     QMenu, QAction, QDialog, QSpinBox, QMessageBox, QLineEdit, QInputDialog, QStackedWidget
 )
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QUrl
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QUrl, QSettings
 from PyQt5.QtGui import QDesktopServices
 from database import DatabaseManager
 
@@ -240,30 +240,39 @@ class VoiceInputDialog(QDialog):
         return data
 
 
-CURRENT_VERSION = "1.1.2"
+CURRENT_VERSION = "1.1.3"
 VERSION_URL = "https://raw.githubusercontent.com/joelson202/B-lgaree/main/version.json"
 
 class UpdateChecker(QThread):
     update_available = pyqtSignal(str)
 
     def run(self):
-        try:
-            # Prevent caching
-            import random
-            url = f"{VERSION_URL}?t={random.random()}"
-            response = requests.get(url, timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                remote_version = data.get("version")
-                download_url = data.get("url")
-                
-                if remote_version and remote_version != CURRENT_VERSION:
-                    # Simple check: if versions differ, assume update
-                    # In a real app, use semver
-                    if remote_version > CURRENT_VERSION:
-                        self.update_available.emit(download_url)
-        except Exception:
-            pass
+        import time
+        import random
+        last_notified = None
+
+        while True:
+            try:
+                # Prevent caching
+                url = f"{VERSION_URL}?t={random.random()}"
+                response = requests.get(url, timeout=5)
+                if response.status_code == 200:
+                    data = response.json()
+                    remote_version = data.get("version")
+                    download_url = data.get("url")
+                    
+                    if remote_version and remote_version != CURRENT_VERSION:
+                        # Simple check: if versions differ, assume update
+                        if remote_version > CURRENT_VERSION:
+                            # Notify only if not already notified for this version in this session
+                            if remote_version != last_notified:
+                                self.update_available.emit(download_url)
+                                last_notified = remote_version
+            except Exception:
+                pass
+            
+            # Verifica a cada 60 segundos
+            time.sleep(60)
 
 class UpdateDownloader(QThread):
     progress = pyqtSignal(int)
@@ -497,6 +506,7 @@ class LoginWindow(QDialog):
         
         # Database
         self.db = DatabaseManager()
+        self.settings = QSettings("BulgareeSoft", "Bulgaree")
         
         layout = QVBoxLayout(self)
         layout.setSpacing(20)
@@ -532,6 +542,11 @@ class LoginWindow(QDialog):
             }
         """)
         layout.addWidget(self.email_input)
+        
+        # Restaurar email salvo
+        saved_email = self.settings.value("email", "")
+        if saved_email:
+            self.email_input.setText(str(saved_email))
         
         self.pass_input = QLineEdit()
         self.pass_input.setPlaceholderText("Senha")
@@ -583,6 +598,9 @@ class LoginWindow(QDialog):
         btn_close.clicked.connect(self.reject)
         btn_close.setStyleSheet("background-color: transparent; color: #666; margin-top: 10px;")
         layout.addWidget(btn_close)
+
+        if self.email_input.text():
+            self.pass_input.setFocus()
         
     def handle_login(self):
         email = self.email_input.text()
@@ -593,6 +611,7 @@ class LoginWindow(QDialog):
             
         success, msg = self.db.login(email, password)
         if success:
+            self.settings.setValue("email", email)
             self.accept()
         else:
             QMessageBox.critical(self, "Erro", msg)
@@ -782,11 +801,6 @@ class MainWindow(QWidget):
         self.sales_total_label = QLabel("Total Vendas: R$ 0,00")
         self.sales_total_label.setStyleSheet("font-weight: bold; color: blue;")
         vendas_buttons_layout.addWidget(self.sales_total_label)
-        
-        self.btn_voice_sales = QPushButton(" 🎤 Adicionar Vendas com Voz")
-        self.btn_voice_sales.setStyleSheet("background-color: #9370DB; color: white; font-weight: bold; padding: 6px 12px; border-radius: 4px;")
-        self.btn_voice_sales.clicked.connect(self.open_sales_voice_dialog)
-        vendas_buttons_layout.addWidget(self.btn_voice_sales)
         
         vendas_layout.addLayout(vendas_buttons_layout)
 
