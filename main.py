@@ -230,7 +230,7 @@ class VoiceInputDialog(QDialog):
         return data
 
 
-CURRENT_VERSION = "1.1.0"
+CURRENT_VERSION = "1.1.1"
 VERSION_URL = "https://raw.githubusercontent.com/joelson202/B-lgaree/main/version.json"
 
 class UpdateChecker(QThread):
@@ -669,6 +669,11 @@ class MainWindow(QWidget):
         self.stack = QStackedWidget()
         self.display_layout.addWidget(self.stack)
 
+        # --- Painel Vazio (Home) ---
+        self.empty_panel = QWidget()
+        self.empty_panel.setStyleSheet("background-color: transparent;")
+        self.stack.addWidget(self.empty_panel)
+
         # --- Painel de Produtos ---
         self.produtos_panel = QFrame()
         self.produtos_panel.setStyleSheet("""
@@ -827,6 +832,9 @@ class MainWindow(QWidget):
 
         # Start Update Check
         self.check_updates()
+        
+        # Set Initial View (Produtos)
+        self.stack.setCurrentWidget(self.produtos_panel)
 
         # Load Config to UI
         # self.supabase_url_input.setText(self.db.url)
@@ -1176,10 +1184,16 @@ class MainWindow(QWidget):
 
     # --- Navigation ---
     def show_produtos(self):
-        self.stack.setCurrentWidget(self.produtos_panel)
+        if self.stack.currentWidget() == self.produtos_panel:
+            self.stack.setCurrentWidget(self.empty_panel)
+        else:
+            self.stack.setCurrentWidget(self.produtos_panel)
 
     def show_vendas(self):
-        self.stack.setCurrentWidget(self.vendas_panel)
+        if self.stack.currentWidget() == self.vendas_panel:
+            self.stack.setCurrentWidget(self.empty_panel)
+        else:
+            self.stack.setCurrentWidget(self.vendas_panel)
 
     # --- Sales Logic ---
     def get_sales_data(self):
