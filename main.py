@@ -64,6 +64,8 @@ class VoiceWorker(QThread):
             "data": "Data",
             "mercadoria": "Mercadorias",
             "mercadorias": "Mercadorias",
+            "produto": "Produto",
+            "produtos": "Produto",
             "categoria": "Categoria",
             "descrição": "Descrição",
             "descricao": "Descrição",
@@ -72,6 +74,11 @@ class VoiceWorker(QThread):
             "preço": "Preço",
             "preco": "Preço",
             "valor": "Preço",
+            "valor unitário": "Valor Unit.",
+            "valor unitario": "Valor Unit.",
+            "unitário": "Valor Unit.",
+            "unitario": "Valor Unit.",
+            "total": "Total",
             "estoque": "Estoque",
             "quantidade": "Quantidade",
             "quantas": "Quantidade",
@@ -114,9 +121,9 @@ class VoiceWorker(QThread):
         return data
 
 class VoiceInputDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, fields=None, title_text="Adicionar Produtos com Voz"):
         super().__init__(parent)
-        self.setWindowTitle("Adicionar Produtos com Voz")
+        self.setWindowTitle(title_text)
         self.setFixedSize(400, 550)
         self.setStyleSheet("""
             QDialog { background-color: #2E2E2E; color: white; border: 1px solid #00FFFF; border-radius: 10px; }
@@ -152,9 +159,12 @@ class VoiceInputDialog(QDialog):
         form_layout.setSpacing(10)
         
         self.inputs = {}
-        fields = ["Data", "Mercadorias", "Categoria", "Descrição", "Código", "Preço", "Quantidade"]
+        if fields is None:
+            self.fields_list = ["Data", "Mercadorias", "Categoria", "Descrição", "Código", "Preço", "Quantidade"]
+        else:
+            self.fields_list = fields
         
-        for field in fields:
+        for field in self.fields_list:
             row = QHBoxLayout()
             lbl = QLabel(field + ":")
             lbl.setFixedWidth(80)
@@ -230,7 +240,7 @@ class VoiceInputDialog(QDialog):
         return data
 
 
-CURRENT_VERSION = "1.1.1"
+CURRENT_VERSION = "1.1.2"
 VERSION_URL = "https://raw.githubusercontent.com/joelson202/B-lgaree/main/version.json"
 
 class UpdateChecker(QThread):
@@ -764,9 +774,19 @@ class MainWindow(QWidget):
         self.btn_remove_sale.clicked.connect(self.remove_sale_row)
         vendas_buttons_layout.addWidget(self.btn_remove_sale)
 
+        self.btn_voice_sales = QPushButton(" 🎤 Adicionar Vendas com Voz")
+        self.btn_voice_sales.setStyleSheet("background-color: #9370DB; color: white; font-weight: bold; padding: 6px 12px; border-radius: 4px;")
+        self.btn_voice_sales.clicked.connect(self.open_sales_voice_dialog)
+        vendas_buttons_layout.addWidget(self.btn_voice_sales)
+
         self.sales_total_label = QLabel("Total Vendas: R$ 0,00")
         self.sales_total_label.setStyleSheet("font-weight: bold; color: blue;")
         vendas_buttons_layout.addWidget(self.sales_total_label)
+        
+        self.btn_voice_sales = QPushButton(" 🎤 Adicionar Vendas com Voz")
+        self.btn_voice_sales.setStyleSheet("background-color: #9370DB; color: white; font-weight: bold; padding: 6px 12px; border-radius: 4px;")
+        self.btn_voice_sales.clicked.connect(self.open_sales_voice_dialog)
+        vendas_buttons_layout.addWidget(self.btn_voice_sales)
         
         vendas_layout.addLayout(vendas_buttons_layout)
 
@@ -1034,7 +1054,8 @@ class MainWindow(QWidget):
 
     # --- Funções de controle financeiro ---
     def open_voice_dialog(self):
-        dialog = VoiceInputDialog(self)
+        fields = ["Data", "Mercadorias", "Categoria", "Descrição", "Código", "Preço", "Quantidade"]
+        dialog = VoiceInputDialog(self, fields=fields, title_text="Adicionar Produtos com Voz")
         if dialog.exec_() == QDialog.Accepted:
             data = dialog.get_data()
             row_pos = self.finance_table.rowCount()
@@ -1102,6 +1123,40 @@ class MainWindow(QWidget):
             
             self.update_saldo()
             self.save_data()
+
+    def open_sales_voice_dialog(self):
+        fields = ["Data", "Produto", "Quantidade", "Valor Unit.", "Total"]
+        dialog = VoiceInputDialog(self, fields=fields, title_text="Adicionar Vendas com Voz")
+        if dialog.exec_() == QDialog.Accepted:
+            data = dialog.get_data()
+            row_pos = self.sales_table.rowCount()
+            self.sales_table.insertRow(row_pos)
+            
+            # Extract basic fields
+            date = data.get("Data", "")
+            product = data.get("Produto", "")
+            
+            # Quantity
+            qty_str = data.get("Quantidade", "0")
+            match_qty = re.search(r'(\d+)', qty_str)
+            qty_val = int(match_qty.group(1)) if match_qty else 0
+            
+            # Unit Value
+            unit_str = data.get("Valor Unit.", "0.00")
+            match_price = re.search(r'(\d+(?:[.,]\d{1,2})?)', unit_str)
+            unit_val = float(match_price.group(1).replace(",", ".")) if match_price else 0.00
+            
+            # Total
+            total_val = unit_val * qty_val
+            
+            self.sales_table.setItem(row_pos, 0, QTableWidgetItem(date))
+            self.sales_table.setItem(row_pos, 1, QTableWidgetItem(product))
+            self.sales_table.setItem(row_pos, 2, QTableWidgetItem(str(qty_val)))
+            self.sales_table.setItem(row_pos, 3, QTableWidgetItem(f"{unit_val:.2f}"))
+            self.sales_table.setItem(row_pos, 4, QTableWidgetItem(f"{total_val:.2f}"))
+            
+            self.update_sales_total()
+            self.save_sales_data()
 
     def add_row(self):
         row_pos = self.finance_table.rowCount()
@@ -1270,6 +1325,55 @@ class MainWindow(QWidget):
     def on_sale_changed(self, item):
         self.update_sales_total()
         self.save_sales_data()
+
+    def open_sales_voice_dialog(self):
+        fields = ["Data", "Produto", "Quantidade", "Valor Unit.", "Total"]
+        dialog = VoiceInputDialog(self, fields=fields, title_text="Adicionar Vendas com Voz")
+        if dialog.exec_() == QDialog.Accepted:
+            data = dialog.get_data()
+            row = self.sales_table.rowCount()
+            self.sales_table.insertRow(row)
+            
+            # Helper to safely get float
+            def get_float(val_str):
+                try:
+                    match = re.search(r'(\d+(?:[.,]\d{1,2})?)', val_str)
+                    if match:
+                        return float(match.group(1).replace(",", "."))
+                    return 0.0
+                except:
+                    return 0.0
+
+            # Data
+            self.sales_table.setItem(row, 0, QTableWidgetItem(data.get("Data", "")))
+            # Produto
+            self.sales_table.setItem(row, 1, QTableWidgetItem(data.get("Produto", "")))
+            
+            # Quantidade
+            qty_str = data.get("Quantidade", "0")
+            try:
+                match_qty = re.search(r'(\d+)', qty_str)
+                qty = int(match_qty.group(1)) if match_qty else 0
+            except:
+                qty = 0
+            self.sales_table.setItem(row, 2, QTableWidgetItem(str(qty)))
+            
+            # Valor Unit.
+            val_unit_str = data.get("Valor Unit.", "0.00")
+            val_unit = get_float(val_unit_str)
+            self.sales_table.setItem(row, 3, QTableWidgetItem(f"{val_unit:.2f}"))
+            
+            # Total
+            total_str = data.get("Total", "")
+            if total_str:
+                total = get_float(total_str)
+            else:
+                total = qty * val_unit
+            
+            self.sales_table.setItem(row, 4, QTableWidgetItem(f"{total:.2f}"))
+            
+            self.update_sales_total()
+            self.save_sales_data()
 
     def add_sale_row(self):
         row = self.sales_table.rowCount()
